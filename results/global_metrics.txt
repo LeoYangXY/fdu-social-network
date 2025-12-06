@@ -1,0 +1,6 @@
+nodes: 4039
+edges: 88234
+density: 0.010819963503439287
+average_clustering: 0.6055467186200876
+diameter: 8
+avg_shortest_path: 3.6925068496963913
