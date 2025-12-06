@@ -1,4 +1,3 @@
-```markdown
 # Social Network Analysis on Facebook Ego-Networks
 
 This project performs **topological analysis** on the [Facebook social circles dataset](http://snap.stanford.edu/data/ego-Facebook.html) from SNAP. It includes:
@@ -8,44 +7,22 @@ This project performs **topological analysis** on the [Facebook social circles d
 
 All results are saved in the `results/` folder after running the script.
 
+
 ---
 
-## 📦 Environment Setup
+## Environment Setup
 
-### Option 1: Using `conda` (Recommended)
+```bash
+conda env create -f environment.yml
+```
 
-1. Create and activate a new conda environment:
-   ```bash
-   conda create -n social_network python=3.9
-   conda activate social_network
-   ```
-
-2. Install dependencies:
-   ```bash
-   conda install networkx matplotlib pandas
-   pip install python-louvain
-   ```
-
-> 💡 Note: `python-louvain` (provides `community` module) is only available via `pip`.
-
-### Option 2: Using `requirements.txt`
-
-If you prefer pure pip:
 ```bash
 pip install -r requirements.txt
 ```
 
-`requirements.txt`:
-```
-networkx>=2.8
-matplotlib>=3.5
-pandas>=1.4
-python-louvain>=0.15
-```
-
 ---
 
-## 🚀 How to Run
+## How to Run
 
 1. **Download the dataset**:
    - Go to [http://snap.stanford.edu/data/ego-Facebook.html](http://snap.stanford.edu/data/ego-Facebook.html)
@@ -54,7 +31,7 @@ python-louvain>=0.15
 
 2. **Run the analysis**:
    ```bash
-   python question_b.py
+   python solve.py
    ```
 
 3. **View results**:
@@ -62,7 +39,7 @@ python-louvain>=0.15
 
 ---
 
-## 📊 Code Workflow
+## Code Workflow
 
 The script executes the following steps **in order**:
 
@@ -96,7 +73,7 @@ The script executes the following steps **in order**:
 
 ---
 
-## 📁 Output Files
+## Output Files
 
 After running, the `results/` folder contains:
 
@@ -112,7 +89,7 @@ After running, the `results/` folder contains:
 
 ---
 
-## 📚 Dataset Source
+## Dataset Source
 
 - **Name**: Facebook Ego-Networks
 - **Nodes**: 4039
@@ -120,11 +97,9 @@ After running, the `results/` folder contains:
 - **Source**: [J. McAuley and J. Leskovec, NIPS 2012](https://arxiv.org/abs/1207.0192)
 - **Link**: http://snap.stanford.edu/data/ego-Facebook.html
 
-> ⚠️ Note: The network is a **static snapshot**; temporal evolution analysis is not possible.
 
 ---
 
-## 📝 License
+## License
 
 This project is for educational and research purposes only.
-```
