@@ -398,6 +398,7 @@ class SocialNetworkAnalyzer:
             logger.error(f"Error computing additional metrics: {str(e)}")
             return {}
         
+
     def generate_visualizations(self, progress_tracker=None):
         try:
             visualizations = {}
@@ -446,74 +447,152 @@ class SocialNetworkAnalyzer:
                 visualizations['centrality_comparison'] = self.fig_to_base64(fig)
                 plt.close(fig)
 
-            # === 4. 意见领袖与社区结构可视化（完整图，社区按颜色区分，优化布局）===
+            # === 4. 意见领袖与社区结构可视化（强化社区结构显示）===
             if progress_tracker:
                 progress_tracker.update(16, "生成意见领袖社区图", f"处理{n_nodes}个节点")
 
-            # 使用原始图（不采样）
-            subG = self.G
-            sub_partition = self.partition if hasattr(self, 'partition') and self.partition else {}
+            # 采样策略：对大图进行智能采样
+            if n_nodes > 2000:
+                # 获取社区信息
+                if hasattr(self, 'partition') and self.partition:
+                    communities = {}
+                    for node, comm_id in self.partition.items():
+                        if comm_id not in communities:
+                            communities[comm_id] = []
+                        communities[comm_id].append(node)
+                    
+                    # 按社区分层采样
+                    sampled_nodes = set()
+                    
+                    # 首先添加所有意见领袖
+                    if self.leaders_df is not None:
+                        leader_nodes = self.leaders_df['node'].tolist()
+                        sampled_nodes.update(leader_nodes[:min(50, len(leader_nodes))])
+                    
+                    # 然后从每个社区采样
+                    target_size = 1200 - len(sampled_nodes)
+                    nodes_per_community = max(1, target_size // len(communities)) if communities else 10
+                    
+                    for comm_id, nodes in communities.items():
+                        comm_leader_nodes = [n for n in nodes if n in sampled_nodes]
+                        non_leader_nodes = [n for n in nodes if n not in sampled_nodes]
+                        
+                        additional_nodes = min(nodes_per_community, len(non_leader_nodes))
+                        sampled_nodes.update(comm_leader_nodes)
+                        if additional_nodes > 0:
+                            sampled_nodes.update(random.sample(non_leader_nodes, additional_nodes))
+                    
+                    sampled_nodes = list(sampled_nodes)[:1200]
+                    subG = self.G.subgraph(sampled_nodes)
+                    sub_partition = {n: self.partition[n] for n in sampled_nodes if n in self.partition}
+                else:
+                    # 如果没有社区信息，随机采样
+                    sampled_nodes = random.sample(list(self.G.nodes()), 1200)
+                    subG = self.G.subgraph(sampled_nodes)
+                    sub_partition = {}
+            else:
+                subG = self.G
+                sub_partition = self.partition if hasattr(self, 'partition') and self.partition else {}
 
-            # 使用kamada_kawai_layout布局，使社区结构更明显
-            if n_nodes <= 5000:
-                # 使用 Kamada-Kawai 布局，能更好保持社区结构
-                # 移除seed参数以兼容低版本NetworkX
+            # 使用Kamada-Kawai布局，更适合展示社区结构
+            if subG.number_of_nodes() <= 1000:
                 pos = nx.kamada_kawai_layout(subG)
             else:
-                # 对超大图使用 spring_layout + 更多迭代
-                pos = nx.spring_layout(subG, k=0.8, iterations=50, seed=42)
+                # 对大图使用spring_layout但增加迭代次数
+                pos = nx.spring_layout(subG, k=0.6, iterations=50, seed=42)
 
             # 创建意见领袖与社区结构结合图
-            fig, ax = plt.subplots(figsize=(12, 8))
+            fig, ax = plt.subplots(figsize=(14, 10))
             
             # 绘制社区节点（根据社区着色）
             if sub_partition:
                 # 获取所有社区ID并排序
                 comm_ids = sorted(list(set(sub_partition.values())))
                 
-                # 为每个社区分配一个颜色
-                colors = plt.cm.tab20(np.linspace(0, 1, len(comm_ids)))
+                # 使用更明显的颜色区分社区
+                n_communities = len(comm_ids)
+                if n_communities <= 10:
+                    colors = plt.cm.Set3(np.linspace(0, 1, max(10, n_communities)))
+                elif n_communities <= 20:
+                    colors = plt.cm.tab20(np.linspace(0, 1, max(20, n_communities)))
+                else:
+                    colors = plt.cm.hsv(np.linspace(0, 1, n_communities))
                 
                 # 创建颜色映射
                 color_map = {comm_id: colors[i] for i, comm_id in enumerate(comm_ids)}
                 node_colors = [color_map[sub_partition[n]] if n in sub_partition else 'lightgray' for n in subG.nodes()]
                 
+                # 分别处理普通节点和意见领袖节点
+                all_nodes = list(subG.nodes())
+                if self.leaders_df is not None:
+                    leader_nodes = [n for n in self.leaders_df['node'].tolist() if n in subG]
+                    normal_nodes = [n for n in all_nodes if n not in leader_nodes]
+                else:
+                    leader_nodes = []
+                    normal_nodes = all_nodes
+                
                 # 绘制普通节点 - 按社区着色
-                normal_nodes = [n for n in subG.nodes() if self.leaders_df is None or n not in self.leaders_df['node'].tolist()]
                 if normal_nodes:
-                    # 获取每个节点对应的社区ID
                     normal_node_colors = [color_map[sub_partition[n]] if n in sub_partition else 'lightgray' for n in normal_nodes]
                     nx.draw_networkx_nodes(
                         subG, pos,
                         nodelist=normal_nodes,
-                        node_color=normal_node_colors,      # ✅ 使用社区颜色
-                        node_size=10,
-                        alpha=0.6
+                        node_color=normal_node_colors,
+                        node_size=30,
+                        alpha=0.8,
+                        edgecolors='white',
+                        linewidths=0.3
                     )
-            else:
-                # 如果没有社区信息，才用统一灰色
-                nx.draw_networkx_nodes(subG, pos, node_size=10, alpha=0.6, node_color='lightgray')
-            
-            # 绘制意见领袖（覆盖在上面，标红标大）
-            if self.leaders_df is not None:
-                leader_nodes = [n for n in self.leaders_df['node'].tolist() if n in subG]
+                
+                # 绘制意见领袖（覆盖在上面，标红标大）
                 if leader_nodes:
-                    # 绘制意见领袖节点（红色，更大）
                     nx.draw_networkx_nodes(subG, pos, nodelist=leader_nodes,
-                                         node_color='red',
-                                         node_size=100, 
-                                         edgecolors='white', 
-                                         linewidths=2)
+                                        node_color='red',
+                                        node_size=120, 
+                                        edgecolors='white', 
+                                        linewidths=2.5)
+            else:
+                # 如果没有社区信息，统一着色
+                if self.leaders_df is not None:
+                    all_nodes = list(subG.nodes())
+                    leader_nodes = [n for n in self.leaders_df['node'].tolist() if n in subG]
+                    normal_nodes = [n for n in all_nodes if n not in leader_nodes]
+                    
+                    # 为普通节点和意见领袖设置不同颜色
+                    node_colors = ['red' if n in leader_nodes else 'lightgray' for n in subG.nodes()]
+                    nx.draw_networkx_nodes(subG, pos, node_color=node_colors, node_size=30, alpha=0.8)
+                else:
+                    nx.draw_networkx_nodes(subG, pos, node_size=30, alpha=0.8, node_color='lightgray')
             
-            # 绘制边（只绘制部分边以避免遮挡）
+            # 绘制边（限制边的数量以避免遮挡）
             edges = list(subG.edges())
-            if len(edges) > 1000:
-                edges = random.sample(edges, int(len(edges) * 0.1))
+            if len(edges) > 2000:
+                edges = random.sample(edges, 2000)
+            elif len(edges) > 1000:
+                edges = random.sample(edges, int(len(edges) * 0.3))
             
-            nx.draw_networkx_edges(subG, pos, edgelist=edges, alpha=0.1, width=0.2)
+            # 增加边的透明度和宽度，使社区边界更明显
+            nx.draw_networkx_edges(subG, pos, edgelist=edges, alpha=0.15, width=0.3)
             
+            # 添加社区标签（只对较大的社区）
+            if sub_partition and len(sub_partition) <= 20:
+                # 找到每个社区的中心节点
+                community_centers = {}
+                for comm_id, nodes in sub_partition.items():
+                    if comm_id not in community_centers:
+                        community_centers[comm_id] = []
+                    community_centers[comm_id].append(nodes)
+                
+                # 为每个社区添加标签
+                for comm_id, nodes in community_centers.items():
+                    if len(nodes) > 10:  # 只为较大社区添加标签
+                        center_pos = np.mean([pos[n] for n in nodes], axis=0)
+                        ax.annotate(f'C{comm_id}', xy=center_pos, xytext=(5, 5), textcoords='offset points',
+                                fontsize=8, fontweight='bold', color='black')
+
             plt.axis('off')
-            plt.title(f"Opinion Leaders (Red) + Communities - {len(subG.nodes())} nodes", fontsize=14, fontweight='bold')
+            plt.title(f"Opinion Leaders (Red) + Communities - {len(subG.nodes())} nodes, {len(set(sub_partition.values())) if sub_partition else 0} communities", 
+                    fontsize=14, fontweight='bold')
             
             # 添加图例
             from matplotlib.patches import Patch
@@ -548,8 +627,11 @@ class SocialNetworkAnalyzer:
 
         except Exception as e:
             logger.error(f"Visualization error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {}
-    
+
+
     def fig_to_base64(self, fig):
         buf = BytesIO()
         fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
