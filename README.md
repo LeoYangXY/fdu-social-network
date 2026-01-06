@@ -9,7 +9,7 @@
 ```
 SOCIAL_NETWORK/
 ├── cache/                          # 缓存目录
-│   ├── 8c7ec6ded0f8b475c0c295a657805fd4.json  # 缓存文件示例
+│   
 ├── data/                       # 数据集目录
 │       └── facebook_combined.txt   # Facebook数据集文件
 ├── results/                        # 分析结果目录
@@ -20,7 +20,6 @@ SOCIAL_NETWORK/
 │   └── index.html                 # 前端主页面
 ├── environment.yml                # Conda环境配置文件
 ├── README.md                      # 说明文档（本文件）
-└── requirements.txt               # Python依赖包列表
 ```
 
 ## 安装与配置
@@ -31,9 +30,6 @@ SOCIAL_NETWORK/
 # 创建Conda环境
 conda env create -f environment.yml
 
-# 安装依赖包
-pip install -r requirements.txt
-
 ```
 
 ## 数据准备
@@ -43,7 +39,7 @@ pip install -r requirements.txt
 1. 访问 [Stanford SNAP数据集网站](http://snap.stanford.edu/data/ego-Facebook.html)
 2. 下载 `facebook_combined.txt.gz` 文件
 3. 解压后得到 `facebook_combined.txt`
-4. 将文件放置在 `/data/` 目录下
+4. 将文件放置在 `/data/` 目录下(目前的data目录下已经提前放置好该数据集了)
 
 ### 数据集信息
 - **文件名**: facebook_combined.txt
@@ -56,7 +52,7 @@ pip install -r requirements.txt
 ### 基本启动
 ```bash
 # 激活环境
-conda activate social-network
+conda activate social_network
 
 # 启动应用
 python src/backend.py
